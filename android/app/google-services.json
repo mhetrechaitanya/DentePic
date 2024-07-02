@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "104886042095",
+    "project_id": "dental-198b5",
+    "storage_bucket": "dental-198b5.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:104886042095:android:d3fccbd93bc9693c740a1a",
+        "android_client_info": {
+          "package_name": "com.chaitanyasapplication.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0nxB2ikG5YwiC9jMfncktsd-3VJT-giA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

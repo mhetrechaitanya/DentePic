@@ -1,0 +1,79 @@
+name: Dentepic
+description: A new Flutter project.
+version: 1.0.0+1
+environment: 
+  sdk: '>=2.18.0 <3.0.0'
+dependencies: 
+  flutter: 
+    sdk: flutter
+  cached_network_image: ^3.3.0
+  flutter_svg: ^2.0.9
+  intl: ^0.18.0
+  file_picker: ^8.0.0+1
+  cloud_firestore: ^4.15.10
+  csv: ^6.0.0
+  firebase_auth: ^4.19.0
+  shared_preferences: ^2.2.2
+  firebase_storage: ^11.7.0
+  dotted_border: ^2.1.0
+  image_picker: ^1.1.2
+  lottie: ^3.1.2
+  speech_to_text: ^6.6.0
+  avatar_glow: ^3.0.1
+  picovoice_flutter: ^3.0.3
+  fluttertoast: ^8.2.6
+  provider: ^6.1.2
+  flutter_local_notifications: ^13.0.0
+  internet_connection_checker_plus: ^2.3.0
+  permission_handler: ^11.3.1
+  flutter_share: ^2.0.0
+  pdf: ^3.10.8
+  path_provider: ^2.1.3
+  url_launcher: ^6.3.0
+  printing: ^5.8.0
+  # syncfusion_flutter_pdfviewer: ^22.2.8
+  syncfusion_flutter_pdfviewer: ^22.2.12
+  open_file: ^3.3.2
+
+
+
+dev_dependencies: 
+  flutter_test: 
+    sdk: flutter
+  flutter_native_splash: ^2.0.4
+
+flutter: 
+  uses-material-design: true
+  assets: 
+    - assets/
+    - assets/images/
+    - assets/icons/
+    - assets/lotties/
+    - assets/images/logo.png
+  fonts: 
+    - family: Inter
+      fonts: 
+        - asset: assets/fonts/InterMedium.ttf
+          weight: 500
+        - asset: assets/fonts/InterBold.ttf
+          weight: 700
+
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
+
+flutter_native_splash:
+  color: "#ffffff" # Background color for splash screen.
+  image: assets/images/logo.png # Path to your splash screen image.
+  android: true # Enable splash screen for Android.
+  ios: true # Enable splash screen for iOS.
+  android_gravity: center # Positioning of the splash screen image on Android.
+  ios_content_mode: center # Positioning of the splash screen image on iOS.
+  fullscreen: true # Enable fullscreen mode for the splash screen.
+  android_12:
+    color: "#ffffff"
+    icon_background_color: "#ffffff"
+    image: assets/images/logo.png
+    android_gravity: center
+  # removeAfter: 3000
