@@ -42,44 +42,44 @@ class SelectToothPageState extends State<SelectToothPage>
   Map<String, int> diseaseTextFieldsCount = {};
   final List<Tooth> teeth = [
     // Upper Teeth (Right to Left)
-    Tooth(id: 1, left: 0.1, top: 0.4),
-    Tooth(id: 2, left: 0.12, top: 0.35),
-    Tooth(id: 3, left: 0.14, top: 0.28),
-    Tooth(id: 4, left: 0.15, top: 0.22),
-    Tooth(id: 5, left: 0.165, top: 0.17),
-    Tooth(id: 6, left: 0.198, top: 0.13),
-    Tooth(id: 7, left: 0.247, top: 0.105),
-    Tooth(id: 8, left: 0.3, top: 0.09),
-    Tooth(id: 9, left: 0.36, top: 0.092),
+    Tooth(id: 1, left: 0.175, top: 0.425),
+    Tooth(id: 2, left: 0.185, top: 0.350),
+    Tooth(id: 3, left: 0.200, top: 0.250),
+    Tooth(id: 4, left: 0.230, top: 0.165),
+    Tooth(id: 5, left: 0.265, top: 0.100),
+    Tooth(id: 6, left: 0.305, top: 0.035),
+    Tooth(id: 7, left: 0.370, top: 0.005),
+    Tooth(id: 8, left: 0.435, top: 0.000),
 
     // Upper Teeth (Left to Right)
-    Tooth(id: 10, left: 0.74, top: 0.105),
-    Tooth(id: 11, left: 0.802, top: 0.13),
-    Tooth(id: 12, left: 0.835, top: 0.17),
-    Tooth(id: 13, left: 0.85, top: 0.22),
-    Tooth(id: 14, left: 0.865, top: 0.28),
-    Tooth(id: 15, left: 0.88, top: 0.35),
-    Tooth(id: 16, left: 0.9, top: 0.4),
-
-    // Lower Teeth (Left to Right)
-    Tooth(id: 17, left: 0.9, top: 0.6),
-    Tooth(id: 18, left: 0.88, top: 0.65),
-    Tooth(id: 19, left: 0.865, top: 0.72),
-    Tooth(id: 20, left: 0.85, top: 0.78),
-    Tooth(id: 21, left: 0.835, top: 0.83),
-    Tooth(id: 22, left: 0.802, top: 0.87),
-    Tooth(id: 23, left: 0.74, top: 0.895),
-    Tooth(id: 24, left: 0.68, top: 0.9),
+    Tooth(id: 9, right: 0.435, top: 0.000),
+    Tooth(id: 10, right: 0.370, top: 0.005),
+    Tooth(id: 11, right: 0.305, top: 0.035),
+    Tooth(id: 12, right: 0.265, top: 0.100),
+    Tooth(id: 13, right: 0.230, top: 0.165),
+    Tooth(id: 14, right: 0.200, top: 0.250),
+    Tooth(id: 15, right: 0.185, top: 0.350),
+    Tooth(id: 16, right: 0.175, top: 0.425),
 
     // Lower Teeth (Right to Left)
-    Tooth(id: 25, left: 0.36, top: 0.9),
-    Tooth(id: 26, left: 0.3, top: 0.895),
-    Tooth(id: 27, left: 0.247, top: 0.87),
-    Tooth(id: 28, left: 0.198, top: 0.83),
-    Tooth(id: 29, left: 0.165, top: 0.78),
-    Tooth(id: 30, left: 0.15, top: 0.72),
-    Tooth(id: 31, left: 0.14, top: 0.65),
-    Tooth(id: 32, left: 0.1, top: 0.6),
+    Tooth(id: 17, right: 0.175, bottom: 0.425),
+    Tooth(id: 18, right: 0.200, bottom: 0.330),
+    Tooth(id: 19, right: 0.235, bottom: 0.220),
+    Tooth(id: 20, right: 0.260, bottom: 0.140),
+    Tooth(id: 21, right: 0.290, bottom: 0.080),
+    Tooth(id: 22, right: 0.335, bottom: 0.035),
+    Tooth(id: 23, right: 0.395, bottom: 0.005),
+    Tooth(id: 24, right: 0.448, bottom: 0.000),
+
+    // Lower Teeth (Right to Left)
+    Tooth(id: 25, left: 0.448, bottom: 0.000),
+    Tooth(id: 26, left: 0.395, bottom: 0.005),
+    Tooth(id: 27, left: 0.335, bottom: 0.035),
+    Tooth(id: 28, left: 0.290, bottom: 0.080),
+    Tooth(id: 29, left: 0.260, bottom: 0.140),
+    Tooth(id: 30, left: 0.235, bottom: 0.220),
+    Tooth(id: 31, left: 0.200, bottom: 0.330),
+    Tooth(id: 32, left: 0.175, bottom: 0.425),
   ];
 
   bool _isUploading = false;
