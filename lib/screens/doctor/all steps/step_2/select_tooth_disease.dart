@@ -26,7 +26,7 @@ class ScannerFrontTabContainerPageState extends State<SelectDiseasesStep>
   @override
   void initState() {
     super.initState();
-    tabviewController = TabController(length: 3, vsync: this);
+    tabviewController = TabController(length: 2, vsync: this);
   }
   
   @override

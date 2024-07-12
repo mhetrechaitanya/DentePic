@@ -13,40 +13,41 @@ class StudentsDataScreen extends StatefulWidget {
 
 class _StudentsDataScreenState extends State<StudentsDataScreen> {
   TextEditingController searchController = TextEditingController();
-
+  Map<String, int> _allStudents = {};
+  Map<String, int> _filteredStudents = {};
+  Map<String, String> _assignedDoctors = {};
+  bool _isLoading = false;
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        body: FutureBuilder<Map<String, int>>(
-          future: fetchStudents(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              // Show circular indicator while loading
-              return Center(
-                child: CircularProgressIndicator(color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black
-                          : appTheme.blue50,),
-              );
-            } else if (snapshot.hasError) {
-              // Handle error
-              return Center(
-                child: Text('Error: ${snapshot.error}'),
-              );
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              // Handle empty data
-              return Center(
-                child: Text('No data available'),
-              );
-            } else {
-              // Once data is fetched, show the students data
-              return _buildStudentsData(snapshot.data!);
-            }
-          },
+  void initState() {
+    super.initState();
+    searchController.addListener(_onSearchChanged);
+    fetchStudentsAndDoctors();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _filteredStudents = Map.fromEntries(
+        _allStudents.entries.where(
+          (entry) => entry.key.toLowerCase().contains(
+                searchController.text.toLowerCase(),
+              ),
         ),
-      ),
-    );
+      );
+    });
+  }
+
+  Future<void> fetchStudentsAndDoctors() async {
+    setState(() {
+      _isLoading = true;
+    });
+    Map<String, int> students = await fetchStudents();
+    Map<String, String> doctors = await fetchAssignedDoctors();
+    setState(() {
+      _allStudents = students;
+      _filteredStudents = students;
+      _assignedDoctors = doctors;
+      _isLoading = false;
+    });
   }
 
   Future<Map<String, int>> fetchStudents() async {
@@ -63,7 +64,42 @@ class _StudentsDataScreenState extends State<StudentsDataScreen> {
     return instituteMap;
   }
 
-  Widget _buildStudentsData(Map<String, int> students) {
+  Future<Map<String, String>> fetchAssignedDoctors() async {
+    FirebaseFirestore firestore = FirebaseFirestore.instance;
+    CollectionReference institutesCollection =
+        firestore.collection('institutes');
+    QuerySnapshot snapshot = await institutesCollection.get();
+
+    Map<String, String> doctorMap = {};
+    snapshot.docs.forEach((DocumentSnapshot document) {
+      String institute = document['name'] ?? '';
+      String doctor = document['doctor_assigned'] ?? 'not';
+      if (doctor.isEmpty) doctor = 'Not Assigned';
+      doctorMap[institute] = doctor;
+    });
+
+    return doctorMap;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: _isLoading
+            ? Center(
+                child: CircularProgressIndicator(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.black
+                      : appTheme.blue50,
+                ),
+              )
+            : _buildStudentsData(),
+      ),
+    );
+  }
+
+  Widget _buildStudentsData() {
     return SizedBox(
       width: double.maxFinite,
       child: Column(
@@ -102,7 +138,7 @@ class _StudentsDataScreenState extends State<StudentsDataScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _buildStudentsDataList(students),
+                  _buildStudentsDataList(_filteredStudents),
                   SizedBox(height: 340.v),
                 ],
               ),
@@ -128,11 +164,12 @@ class _StudentsDataScreenState extends State<StudentsDataScreen> {
         itemBuilder: (context, index) {
           String college = students.keys.elementAt(index);
           int numOfStudents = students.values.elementAt(index);
+          String doctorAssigned = _assignedDoctors[college] ?? 'not';
 
           return StudentsdataItemWidget(
             schoolCollege: college,
             numOfStudents: numOfStudents,
-            doctorAssigned: "not",
+            doctorAssigned: doctorAssigned,
           );
         },
       ),

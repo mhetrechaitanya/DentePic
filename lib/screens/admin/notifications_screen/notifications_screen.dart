@@ -39,7 +39,7 @@ class _MyHomePageState extends State<NotificationsScreen> {
 
   Future<void> fetchStudents() async {
     if (selectedInstitute == null) return;
-
+    Dialogs.showProgressBar(context);
     QuerySnapshot snapshot = await FirebaseFirestore.instance
         .collection('students')
         .where('institute', isEqualTo: selectedInstitute)
@@ -47,13 +47,13 @@ class _MyHomePageState extends State<NotificationsScreen> {
 
     setState(() {
       students = snapshot.docs.map((doc) {
-        // Convert document data to a Map and add an 'id' field
         Map<String, dynamic> studentData = doc.data() as Map<String, dynamic>;
         studentData['id'] = doc.id;
         return studentData;
       }).toList();
       filteredStudents = students;
     });
+    Navigator.pop(context);
   }
 
   Future<Map<String, dynamic>> fetchStudentsReport(String studentID) async {
@@ -96,18 +96,22 @@ class _MyHomePageState extends State<NotificationsScreen> {
               children: [
                 Icon(
                   Icons.warning,
-                  size: 48,
+                  size: 55,
                   color: Colors.black,
                 ),
-                SizedBox(height: 10),
-                Text('Alert'),
+                // SizedBox(height: 10),
+                // Text('Alert'),
               ],
             ),
-            content: Text('The student\'s test has not been done yet.'),
+            content: Text(
+              'The student\'s test has not been done yet.',
+              textAlign: TextAlign.center,
+            ),
             actions: <Widget>[
               TextButton(
                 child: Text('OK'),
                 onPressed: () {
+                  Navigator.of(context).pop();
                   Navigator.of(context).pop();
                 },
               ),

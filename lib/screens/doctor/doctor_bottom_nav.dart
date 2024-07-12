@@ -8,7 +8,6 @@ import 'package:Dentepic/screens/doctor/home/home_page.dart';
 import 'package:Dentepic/screens/doctor/profile_view_doctor.dart';
 import 'package:Dentepic/services/permission_handler.dart';
 import 'package:flutter/material.dart';
-import 'package:Dentepic/services/notifi_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -190,12 +189,12 @@ class _InitScreenState extends State<DoctorBottom> {
                 );
               },
             ),
-            ListTile(
-              leading: Icon(Icons.logout,color: Colors.black),
-              title: Text('Ssend Notification',style: TextStyle(color: Colors.black),),
-              onTap: () async { NotificationService()
-              .showNotification(title: 'Welcome To Dentepic', body: 'Hello there! Get ready to experience Dentepic\'s amazing features.', id: 0);},
-            ),
+            // ListTile(
+            //   leading: Icon(Icons.logout,color: Colors.black),
+            //   title: Text('Ssend Notification',style: TextStyle(color: Colors.black),),
+            //   onTap: () async { NotificationService()
+            //   .showNotification(title: 'Welcome To Dentepic', body: 'Hello there! Get ready to experience Dentepic\'s amazing features.', id: 0);},
+            // ),
           ],
         ),
       ),

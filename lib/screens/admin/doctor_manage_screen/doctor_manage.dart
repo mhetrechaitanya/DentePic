@@ -3,6 +3,7 @@
 import 'package:Dentepic/core/app_export.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:charts_flutter/flutter.dart' as charts;
 
 class DoctorDetailScreen extends StatefulWidget {
   final String doctorId;
@@ -16,51 +17,55 @@ class DoctorDetailScreen extends StatefulWidget {
 class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
   String? selectedInstitute;
   List<String> institutes = [];
- 
+  bool isLoading = false;
+  Map<String, dynamic>? doctorData;
+  int totalStudents = 0;
+  int checkUpCompletedCount = 0;
 
   @override
   void initState() {
     super.initState();
+    fetchDoctorDetails();
     fetchInstitutes();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Doctor Details'),
-      ),
-      body: FutureBuilder<DocumentSnapshot>(
-        future: fetchDoctorDetails(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator(color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black
-                          : appTheme.blue50,));
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.data() == null) {
-            return Center(child: Text('Doctor not found'));
-          } else {
-            Map<String, dynamic>? doctorData =
-                snapshot.data!.data()! as Map<String, dynamic>?;
-            print(doctorData!);
-            return _buildDoctorDetails(context, doctorData);
-          }
-        },
-      ),
-    );
-  }
-
-  
-
-  Future<DocumentSnapshot> fetchDoctorDetails() async {
+  Future<void> fetchDoctorDetails() async {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
-    // print(widget.doctorId);
     DocumentReference doctorRef =
         firestore.collection('doctors').doc(widget.doctorId);
     DocumentSnapshot snapshot = await doctorRef.get();
-    return snapshot;
+
+    if (snapshot.exists) {
+      setState(() {
+        doctorData = snapshot.data() as Map<String, dynamic>?;
+        // Fetch the institute's student data if the doctor has an assigned institute
+        if (doctorData!['assignedInstitute'] != null) {
+          fetchInstituteStudentData(doctorData!['assignedInstitute']);
+        } else {
+          isLoading = false;
+        }
+      });
+    } else {
+      setState(() {
+        doctorData = null;
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> fetchInstituteStudentData(String instituteName) async {
+    FirebaseFirestore firestore = FirebaseFirestore.instance;
+    QuerySnapshot snapshot = await firestore
+        .collection('students')
+        .where('institute', isEqualTo: instituteName)
+        .get();
+
+    setState(() {
+      totalStudents = snapshot.docs.length;
+      checkUpCompletedCount =
+          snapshot.docs.where((doc) => doc['checkupCompleted'] == true).length;
+      isLoading = false;
+    });
   }
 
   Future<void> fetchInstitutes() async {
@@ -73,14 +78,43 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
 
   Future<void> assignInstitute() async {
     if (selectedInstitute != null) {
+      if (selectedInstitute == doctorData!['assignedInstitute']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Doctor is already assigned to this institute.')),
+        );
+        return;
+      }
+
       FirebaseFirestore firestore = FirebaseFirestore.instance;
       DocumentReference doctorRef =
           firestore.collection('doctors').doc(widget.doctorId);
-      await doctorRef.update({
-        'status': 'AS',
-        'assignedInstitute': selectedInstitute,
-      });
-      Navigator.of(context).pop(true);
+      DocumentReference instituteRef =
+          firestore.collection('institutes').doc(selectedInstitute);
+
+      try {
+        // Update doctor document
+        await doctorRef.update({
+          'status': 'AS',
+          'assignedInstitute': selectedInstitute,
+        });
+
+        // Update institute document
+        await instituteRef.update({
+          'assignedDoctor': {
+            'id': widget.doctorId,
+            'fullName': doctorData!['fullName'],
+            'email': doctorData!['email'],
+          },
+        });
+
+        setState(() {
+          doctorData!['assignedInstitute'] = selectedInstitute;
+          isLoading = true;
+        });
+        fetchInstituteStudentData(selectedInstitute!);
+      } catch (e) {
+        print('Error assigning institute: $e');
+      }
     }
   }
 
@@ -91,16 +125,48 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
     try {
       // Update the doctor document
       await doctorRef.update({
-        'assignedInstitute': FieldValue.delete(), // Remove assigned institute
-        'status': 'AV' // Set status to Available
+        'assignedInstitute': FieldValue.delete(),
+        'status': 'AV',
       });
 
-      print(
-          'Assigned institute removed and status set to AV for doctor $doctorId');
-      Navigator.pop(context, true);
+      // Remove assigned doctor from institute document
+      if (doctorData!['assignedInstitute'] != null) {
+        DocumentReference instituteRef = firestore
+            .collection('institutes')
+            .doc(doctorData!['assignedInstitute']);
+        await instituteRef.update({
+          'assignedDoctor': FieldValue.delete(),
+        });
+      }
+
+      setState(() {
+        doctorData!['assignedInstitute'] = null;
+        totalStudents = 0;
+        checkUpCompletedCount = 0;
+      });
     } catch (e) {
       print('Error updating doctor: $e');
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Doctor Details'),
+      ),
+      body: isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.black
+                    : appTheme.blue50,
+              ),
+            )
+          : doctorData == null
+              ? Center(child: Text('Doctor not found'))
+              : _buildDoctorDetails(context, doctorData!),
+    );
   }
 
   Widget _buildDoctorDetails(
@@ -115,9 +181,9 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
           _buildUserProfile(context, doctorData),
           SizedBox(height: 10.v),
           assignedInstitute == ''
-              ? _buildAssigneInstitute(institutes)
+              ? _buildAssignInstitute(institutes)
               : _buildAssignedInstituteInfo(
-                  assignedInstitute, 0, 0),
+                  assignedInstitute, totalStudents, checkUpCompletedCount),
           SizedBox(height: 20.v),
         ],
       ),
@@ -125,9 +191,8 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
   }
 
   Widget _buildUserProfile(
-      BuildContext context, Map<String, dynamic> studentInfo) {
+      BuildContext context, Map<String, dynamic> doctorInfo) {
     return Container(
-      // margin: EdgeInsets.symmetric(horizontal: 20.h),
       padding: EdgeInsets.symmetric(
         horizontal: 32.h,
         vertical: 15.v,
@@ -150,7 +215,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               SizedBox(width: 10.h),
               Expanded(
                 child: Text(
-                  'Dr. ' + '${studentInfo['fullName'].toString()}',
+                  'Dr. ' + '${doctorInfo['fullName'].toString()}',
                   style: theme.textTheme.titleMedium,
                 ),
               ),
@@ -170,7 +235,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               SizedBox(width: 10.h),
               Expanded(
                 child: Text(
-                  studentInfo['status'].toString(),
+                  doctorInfo['status'].toString(),
                   style: theme.textTheme.titleMedium,
                 ),
               ),
@@ -190,7 +255,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
               SizedBox(width: 10.h),
               Expanded(
                 child: Text(
-                  studentInfo['email'].toString(),
+                  doctorInfo['email'].toString(),
                   style: theme.textTheme.titleMedium,
                 ),
               ),
@@ -243,69 +308,54 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                 'Total Students: $totalStudents',
                 style: theme.textTheme.bodyLarge?.copyWith(color: Colors.black),
               ),
-              SizedBox(
-                height: 10,
-              ),
+              SizedBox(height: 10.v),
               Text(
-                'Checkup Completed: ${checkUpCompletedCount}',
+                'Checkup Completed: $checkUpCompletedCount',
                 style: theme.textTheme.bodyLarge?.copyWith(color: Colors.black),
               ),
-              SizedBox(
-                height: 10,
-              ),
+              SizedBox(height: 10.v),
               Text(
                 'Checkup Remaining: ${totalStudents - checkUpCompletedCount}',
                 style: theme.textTheme.bodyLarge?.copyWith(color: Colors.black),
               ),
-              SizedBox(
-                height: 50,
-              ),
+              SizedBox(height: 20.v),
               Center(
                 child: SizedBox(
                   width: 150.h,
                   height: 150.h,
-                  child: CircularProgressIndicator(
-                    value: 50,
-                    strokeWidth: 30.h,
-                    backgroundColor: Colors.grey[300],
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                  ),
+                  child: _buildPieChart(totalStudents, checkUpCompletedCount),
                 ),
               ),
-              SizedBox(
-                height: 40,
-              ),
+              SizedBox(height: 40.v),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   ElevatedButton(
-                      onPressed: () {
-                        removeAssignedInstitute(widget.doctorId);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                            left: 15, right: 15, top: 8, bottom: 8),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            SizedBox(
-                              width: 3,
-                            ),
-                            Text(
-                              'Remove',
-                              style:
-                                  TextStyle(fontSize: 14, color: Colors.white),
-                            )
-                          ],
-                        ),
-                      ))
+                    onPressed: () {
+                      removeAssignedInstitute(widget.doctorId);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 15, vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          SizedBox(width: 3),
+                          Text(
+                            'Remove',
+                            style: TextStyle(fontSize: 14, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
-              )
+              ),
             ],
           ),
         ),
@@ -313,14 +363,14 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
     );
   }
 
-  Widget _buildAssigneInstitute(List<String> institutes) {
+  Widget _buildAssignInstitute(List<String> institutes) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 10),
           child: Text(
-            'Assigne Institute:',
+            'Assign Institute:',
             style: theme.textTheme.bodyMedium?.copyWith(
                 color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
           ),
@@ -376,42 +426,74 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                   }).toList(),
                 ),
               ),
-              SizedBox(
-                height: 20,
-              ),
+              SizedBox(height: 20.v),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   ElevatedButton(
-                      onPressed: assignInstitute,
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                            left: 15, right: 15, top: 8, bottom: 8),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                            SizedBox(
-                              width: 3,
-                            ),
-                            Text(
-                              'Assign',
-                              style:
-                                  TextStyle(fontSize: 14, color: Colors.white),
-                            )
-                          ],
-                        ),
-                      ))
+                    onPressed: assignInstitute,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 15, vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          SizedBox(width: 3),
+                          Text(
+                            'Assign',
+                            style: TextStyle(fontSize: 14, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
-              )
+              ),
             ],
           ),
         ),
       ],
     );
   }
+
+  Widget _buildPieChart(int totalStudents, int checkUpCompletedCount) {
+  final remainingCount = totalStudents - checkUpCompletedCount;
+  final data = [
+    charts.Series(
+      id: 'CheckupStatus',
+      data: [
+        {'status': 'Completed', 'count': checkUpCompletedCount},
+        {'status': 'Remaining', 'count': remainingCount}
+      ],
+      domainFn: (datum, _) => datum['status'] as String,
+      measureFn: (datum, _) => (datum['count'] as num?) ?? 0,
+      colorFn: (datum, _) => charts.ColorUtil.fromDartColor(
+        datum['status'] == 'Completed'
+            ? Colors.blue
+            : Colors.red,
+      ),
+      labelAccessorFn: (datum, _) => '${datum['status']}: ${datum['count']}',
+    )
+  ];
+
+    return charts.PieChart(
+      data,
+      animate: true,
+      animationDuration: Duration(seconds: 1),
+      defaultRenderer: charts.ArcRendererConfig(
+        arcWidth: 60,
+        arcRendererDecorators: [
+          charts.ArcLabelDecorator(
+            labelPosition: charts.ArcLabelPosition.inside,
+          ),
+        ],
+      ),
+    );
+  }
 }
+

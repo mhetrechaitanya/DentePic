@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:Dentepic/core/utils/size_utils.dart';
 
@@ -7,7 +6,9 @@ String _appTheme = "primary";
 class ColorSchemes {
   static final primaryColorScheme = ColorScheme.light(
     // Primary colors
-    primary: Color(0XFFFCAB8C), // Light pinkish color
+    // primary: Color(0XFFFCAB8C), // Light pinkish color
+    primary: Colors.transparent, // Light pinkish colo
+
     onPrimary: Color(0XFFFFFFFF),
     onPrimaryContainer: Color(0XFF444343),
     background: Color(0XFFFFFFFF),
@@ -18,7 +19,8 @@ class ColorSchemes {
     onError: Color(0XFFFFFFFF),
     primaryContainer: Color(0XFFFFC1A3), // Lighter pinkish color
     secondary: Color(0XFFFC947A), // Darker pink color for secondary
-    secondaryContainer: Color(0XFFFFC1A3), // Light pink color for secondary container
+    secondaryContainer:
+        Color(0XFFFFC1A3), // Light pink color for secondary container
     onSecondary: Color(0XFFFFFFFF),
   );
 
@@ -38,8 +40,16 @@ class ColorSchemes {
     secondaryContainer: Color(0XFF121212),
     onSecondary: Color(0XFFFFFFFF),
   );
-}
 
+  static const LinearGradient appGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFCA5B6),
+      Color(0xFFEE9367),
+    ],
+  );
+}
 
 /// Helper class for managing themes and colors.
 class ThemeHelper {
@@ -56,9 +66,10 @@ class ThemeHelper {
   };
 
   /// Changes the app theme to [_newTheme].
- void changeTheme(String _newTheme) {
+  void changeTheme(String _newTheme) {
     _appTheme = _newTheme;
   }
+
   /// Returns the primary colors for the current theme.
   /// Returns the primary colors for the current theme.
   ThemeData getLightThemeData() {
@@ -147,6 +158,7 @@ class ThemeHelper {
       ),
     );
   }
+
   PrimaryColors _getThemeColors() {
     if (!_supportedCustomColor.containsKey(_appTheme)) {
       throw Exception(
@@ -209,12 +221,11 @@ class ThemeHelper {
 
   /// Returns the current theme data.
   ThemeData themeData() => _getThemeData();
-
 }
 
 /// Class containing the supported text theme styles.
 class TextThemes {
-   static TextTheme textTheme(ColorScheme Colorscheme) => TextTheme(
+  static TextTheme textTheme(ColorScheme Colorscheme) => TextTheme(
         bodyLarge: TextStyle(
           color: Colorscheme.onError,
           fontSize: 17.fSize,
@@ -285,7 +296,9 @@ class PrimaryColors {
   Color get black900 => Color(0XFF000000);
 
   // Blue
+  // Color get blue50 => Colors.transparent;
   Color get blue50 => Color(0XFFFCAB8C);
+
 
   // BlueGray
   Color get blueGray400 => Color(0XFF8B8B8B);
@@ -359,7 +372,6 @@ class PrimaryColors {
   Color get gray9009eDark => Color(0X920E0E0E);
   Color get limeA200Dark => Color(0XFFD4E414);
 }
-
 
 PrimaryColors get appTheme => ThemeHelper().themeColor();
 ThemeData get theme => ThemeHelper().themeData();

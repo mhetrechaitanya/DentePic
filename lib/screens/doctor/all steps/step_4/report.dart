@@ -2,14 +2,13 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'package:Dentepic/screens/doctor/doctor_bottom_nav.dart';
+import 'package:Dentepic/services/file_handle_api.dart';
+import 'package:Dentepic/services/pdf_service_dr.dart';
 import 'package:Dentepic/widgets/dialogs.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:Dentepic/core/app_export.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class ReportScreen extends StatefulWidget {
   final Map<String, dynamic> studentInfo;
@@ -34,7 +33,6 @@ class ReportScreen extends StatefulWidget {
 class _ReportScreenState extends State<ReportScreen> {
   late TabController tabviewController;
 
-
   void uploadReportData() async {
     Dialogs.showProgressBar(context);
 
@@ -57,17 +55,17 @@ class _ReportScreenState extends State<ReportScreen> {
       await Future.delayed(Duration(seconds: 2));
       Navigator.of(context).pop(); // Hide saving dialog
       Dialogs.showSnackbar(context, "Report uploaded successfully");
-     
-     _generateAndSharePdf();
-      
-      // Navigator.pushAndRemoveUntil(
-      //   context,
-      //   MaterialPageRoute(
-      //       builder: (context) => DoctorBottom(
-      //             userId: '',
-      //           )),
-      //   (route) => false, // Removes all routes from the stack
-      // );
+
+      _generateAndSharePdf();
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+            builder: (context) => DoctorBottom(
+                  userId: '',
+                )),
+        (route) => false, // Removes all routes from the stack
+      );
     } catch (e) {
       // print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
       print('Error uploading report: $e');
@@ -127,76 +125,24 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   Future<void> _generateAndSharePdf() async {
-    final pdf = pw.Document();
-
-    // Add content to the PDF document
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) => pw.Container(
-          // Adjust the styling as per your UI
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text('Patient Details:'),
-              pw.Text('Name: ${widget.studentInfo['full_name']}'),
-              pw.Text('Blood Group: ${widget.studentInfo['blood_group']}'),
-              pw.Text('Gender: ${widget.studentInfo['gender']}'),
-              pw.Text('Age: ${widget.studentInfo['age']}'),
-              pw.SizedBox(height: 20),
-              pw.Text('Photos:'),
-              // Example of adding images (adjust as per your requirements)
-              pw.Image(FileImage(File(widget.frontImagePath ?? ''))
-                  as pw.ImageProvider),
-              pw.Image(FileImage(File(widget.upperImagePath ?? ''))
-                  as pw.ImageProvider),
-              pw.Image(FileImage(File(widget.lowerImagePath ?? ''))
-                  as pw.ImageProvider),
-              pw.SizedBox(height: 20),
-              pw.Text('Clinical Findings:'),
-              ...widget.selectedTeethData.map((teethData) {
-                return pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('Tooth ID: ${teethData['toothId']}'),
-                    pw.Text('Disease Name: ${teethData['disease']}'),
-                    pw.Text('Description: ${teethData['description']}'),
-                    pw.SizedBox(height: 10),
-                  ],
-                );
-              }).toList(),
-              pw.SizedBox(height: 20),
-              pw.Text('Treatment Plan:'),
-              pw.Text(widget.treatmentDescription),
-            ],
-          ),
-        ),
-      ),
+    PdfApiDr pdf = PdfApiDr();
+    final pdfFile = await pdf.generate(
+        widget.studentInfo,
+        widget.frontImagePath,
+        widget.upperImagePath,
+        widget.lowerImagePath,
+        widget.selectedTeethData,
+        widget.treatmentDescription);
+    FileHandleApi.openFile(pdfFile);
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+          builder: (context) => DoctorBottom(
+                userId: '',
+              )),
+      (route) => false, // Removes all routes from the stack
     );
-
-    // Save the PDF to a temporary file
-    final output = await getTemporaryDirectory();
-    final pdfFile = File("${output.path}/report_${DateTime.now().millisecondsSinceEpoch}.pdf");
-    await pdfFile.writeAsBytes(await pdf.save());
-
-    // Launch WhatsApp with a pre-filled message containing a link to download the PDF
-    String whatsappLink = "whatsapp://send?phone=<RECIPIENT_PHONE_NUMBER>&text=Patient%20Report";
-    String? recipientPhoneNumber = widget.studentInfo['mobile'];
-    
-    if (recipientPhoneNumber != null) {
-      whatsappLink = whatsappLink.replaceFirst('<RECIPIENT_PHONE_NUMBER>', recipientPhoneNumber);
-    } else {
-      Fluttertoast.showToast(msg: "Phone number not found");
-      return;
-    }
-
-    // Launch WhatsApp using url_launcher
-    if (await canLaunch(whatsappLink )) {
-      await launch(whatsappLink );
-    } else {
-      Fluttertoast.showToast(msg: 'Could not launch WhatsApp');
-    }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +241,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                     padding:
                                         EdgeInsets.symmetric(horizontal: 16),
                                     child: Text(
-                                      'Clinical Findings:',
+                                      'Clinical Findings & Investigation:',
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -314,73 +260,40 @@ class _ReportScreenState extends State<ReportScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Image.asset(
-                                            teethData['toothImage'] ??
-                                                ImageConstant.imageNotFound,
-                                            height: 50,
-                                            width: 50,
+                                          teethData['imagePath'] == ''
+                                              ? Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 22),
+                                                  child: Image.asset(
+                                                    teethData['imagePath'] ??
+                                                        ImageConstant
+                                                            .imageNotFound,
+                                                    height: 50,
+                                                    width: 50,
+                                                  ),
+                                                )
+                                              : Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 22),
+                                                  child: _buildPhotoNet(
+                                                      teethData['imagePath']),
+                                                ),
+                                          SizedBox(height: 10),
+                                          Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 22),
+                                            child: Text(
+                                              'Tooth: ${teethData['toothId']}',
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 14,
+                                              ),
+                                            ),
                                           ),
                                           SizedBox(height: 10),
                                           Padding(
                                             padding: EdgeInsets.symmetric(
-                                                horizontal: 16),
-                                            child: Text(
-                                              'Tooth ID: ${teethData['toothId']}',
-                                              style: TextStyle(
-                                                color: Colors.yellow,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(height: 20),
-                                        ],
-                                      );
-                                    }).toList(),
-                                  ),
-                                  SizedBox(height: 20),
-                                  Padding(
-                                    padding:
-                                        EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text(
-                                      'Investigation:',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(context).brightness ==
-                                                Brightness.light
-                                            ? Colors.black
-                                            : Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: 10),
-                                  Column(
-                                    children: widget.selectedTeethData
-                                        .map((teethData) {
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Padding(
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal: 16),
-                                            child: Text(
-                                              'Disease Name: ${teethData['disease']}',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Theme.of(context)
-                                                            .brightness ==
-                                                        Brightness.light
-                                                    ? Colors.black
-                                                    : Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(height: 5),
-                                          Padding(
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal: 16),
+                                                horizontal: 22),
                                             child: Text(
                                               'Description: ${teethData['description']}',
                                               style: TextStyle(
@@ -393,9 +306,17 @@ class _ReportScreenState extends State<ReportScreen> {
                                               ),
                                             ),
                                           ),
-                                          SizedBox(height: 20),
+                                          SizedBox(height: 10,),
+                                           Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 22),
+                                            child:Divider(color: Colors.black, thickness: 0.3,),
+
+                                          ),
+                                          SizedBox(height: 10,),
+
                                         ],
-                                      );
+                                      ); 
                                     }).toList(),
                                   ),
                                   SizedBox(height: 20),
@@ -425,6 +346,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                                 Brightness.light
                                             ? Colors.black
                                             : Colors.white,
+                                            fontSize: 14
                                       ),
                                     ),
                                   ),
@@ -522,6 +444,23 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   Widget _buildPhoto(String imagePath) {
+    return Container(
+      width: 90,
+      height: 90,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(
+          File(imagePath),
+          fit: BoxFit.cover, // Adjust the BoxFit as per your requirement
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoNet(String imagePath) {
     return Container(
       width: 90,
       height: 90,

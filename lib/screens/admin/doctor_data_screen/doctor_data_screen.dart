@@ -13,45 +13,59 @@ class DoctorDataScreen extends StatefulWidget {
 
 class _DoctorDataScreenState extends State<DoctorDataScreen> {
   TextEditingController searchController = TextEditingController();
+  List<DocumentSnapshot> _allDoctors = [];
+  List<DocumentSnapshot> _filteredDoctors = [];
   String sortOption = 'Assigned'; // Default sort option
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    searchController.addListener(_onSearchChanged);
+    fetchDoctors();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _filteredDoctors = _allDoctors.where(
+        (doc) => doc['fullName'].toLowerCase().contains(
+          searchController.text.toLowerCase(),
+        ),
+      ).toList();
+    });
+  }
+
+  Future<void> fetchDoctors() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    FirebaseFirestore firestore = FirebaseFirestore.instance;
+    CollectionReference doctorsCollection = firestore.collection('doctors');
+    QuerySnapshot snapshot = await doctorsCollection.get();
+
+    setState(() {
+      _allDoctors = snapshot.docs;
+      _filteredDoctors = snapshot.docs;
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
         resizeToAvoidBottomInset: false,
-        body: FutureBuilder<List<DocumentSnapshot>>(
-          future: fetchDoctors(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator(color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black
-                          : appTheme.blue50,));
-            } else if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Center(child: Text('No data available'));
-            } else {
-              return _buildDoctorData(snapshot.data!);
-            }
-          },
-        ),
+        body: _isLoading
+            ? Center(child: CircularProgressIndicator(color: Theme.of(context).brightness == Brightness.light ? Colors.black : appTheme.blue50,))
+            : _buildDoctorData(),
       ),
     );
   }
 
-  Future<List<DocumentSnapshot>> fetchDoctors() async {
-    FirebaseFirestore firestore = FirebaseFirestore.instance;
-    CollectionReference doctorsCollection = firestore.collection('doctors');
-    QuerySnapshot snapshot = await doctorsCollection.get();
-    return snapshot.docs;
-  }
-
-  Widget _buildDoctorData(List<DocumentSnapshot> doctors) {
-    // Sort doctors based on the selected option
-    doctors.sort((a, b) {
+  Widget _buildDoctorData() {
+    _filteredDoctors.sort((a, b) {
       String statusA = a['status'];
-      // String statusB = b['status'];
       if (sortOption == 'Assigned') {
         return statusA == 'AS' ? -1 : 1;
       } else if (sortOption == 'Available') {
@@ -70,7 +84,7 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
             padding: EdgeInsets.only(left: 35.h, right: 36.h),
             child: CustomSearchView(
               controller: searchController,
-              hintText: "Search by school/college",
+              hintText: "Search by doctor's name",
               hintStyle: TextStyle(
                 color: Theme.of(context).brightness == Brightness.light
                     ? Colors.grey // Grey color for light theme
@@ -104,7 +118,7 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
                       .map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
-                      child: Text(value,style: TextStyle(color:  Theme.of(context).brightness == Brightness.light ?  Colors.black : Colors.white,),),
+                      child: Text(value, style: TextStyle(color: Theme.of(context).brightness == Brightness.light ? Colors.black : Colors.white)),
                     );
                   }).toList(),
                   onChanged: (newValue) {
@@ -117,14 +131,15 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
             ],
           ),
           SizedBox(height: 15.v),
-          _buildDoctorsList(context, doctors),
+          _isLoading
+            ? Center(child: CircularProgressIndicator(color: Theme.of(context).brightness == Brightness.light ? Colors.black : appTheme.blue50,))
+            : _buildDoctorsList(context, _filteredDoctors),
         ],
       ),
     );
   }
 
-  Widget _buildDoctorsList(
-      BuildContext context, List<DocumentSnapshot> doctors) {
+  Widget _buildDoctorsList(BuildContext context, List<DocumentSnapshot> doctors) {
     return Expanded(
       child: ListView.separated(
         padding: EdgeInsets.symmetric(horizontal: 35.h),
@@ -147,7 +162,7 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
                 if (value == true) {
                   // Refresh the page or perform any desired action
                   setState(() {
-                    // Your refresh code here
+                    fetchDoctors();
                   });
                 }
               });
@@ -183,8 +198,8 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
             child: Text(
               "Dr. " + name,
               style: theme.textTheme.titleSmall?.copyWith(
-              color: Colors.black
-            ),
+                color: Colors.black,
+              ),
             ),
           ),
           Column(
@@ -201,8 +216,8 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
               Text(
                 "Assigned",
                 style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.black
-            ),
+                  color: Colors.black,
+                ),
               ),
             ],
           ),
@@ -225,8 +240,8 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
             child: Text(
               "Dr. " + name,
               style: theme.textTheme.titleSmall?.copyWith(
-              color: Colors.black
-            ),
+                color: Colors.black,
+              ),
             ),
           ),
           Column(
@@ -242,8 +257,8 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
               Text(
                 "Available",
                 style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.black
-            ),
+                  color: Colors.black,
+                ),
               ),
             ],
           ),
@@ -266,8 +281,8 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
             child: Text(
               "Dr. " + name,
               style: theme.textTheme.titleSmall?.copyWith(
-              color: Colors.black
-            ),
+                color: Colors.black,
+              ),
             ),
           ),
           Column(
@@ -283,8 +298,8 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
               Text(
                 "Not Available",
                 style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.black
-            ),
+                  color: Colors.black,
+                ),
               ),
             ],
           ),
@@ -292,157 +307,4 @@ class _DoctorDataScreenState extends State<DoctorDataScreen> {
       ),
     );
   }
-
-  // /// Section Widget
-  // Widget _buildAssigned(BuildContext context, String Name) {
-  //   return Container(
-  //     margin: EdgeInsets.symmetric(horizontal: 35.h),
-  //     padding: EdgeInsets.symmetric(
-  //       horizontal: 23.h,
-  //       vertical: 7.v,
-  //     ),
-  //     decoration: AppDecoration.fillTeal.copyWith(
-  //       borderRadius: BorderRadiusStyle.roundedBorder13,
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //       children: [
-  //         Padding(
-  //           padding: EdgeInsets.only(
-  //             left: 7.h,
-  //             top: 21.v,
-  //             bottom: 18.v,
-  //           ),
-  //           child: Text(
-  //             "Dr."+Name,
-  //             style: theme.textTheme.titleSmall,
-  //           ),
-  //         ),
-  //         Padding(
-  //           padding: EdgeInsets.only(top: 1.v),
-  //           child: Column(
-  //             children: [
-  //               Container(
-  //                 height: 43.adaptSize,
-  //                 width: 43.adaptSize,
-  //                 decoration: BoxDecoration(
-  //                   color: appTheme.lightBlue800,
-  //                   borderRadius: BorderRadius.circular(
-  //                     21.h,
-  //                   ),
-  //                 ),
-  //               ),
-  //               SizedBox(height: 1.v),
-  //               Text(
-  //                 "Assigned",
-  //                 style: theme.textTheme.bodySmall,
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // /// Section Widget
-  // Widget _buildAvailable(BuildContext context, String Name) {
-  //   return Container(
-  //     margin: EdgeInsets.symmetric(horizontal: 35.h),
-  //     padding: EdgeInsets.symmetric(
-  //       horizontal: 23.h,
-  //       vertical: 9.v,
-  //     ),
-  //     decoration: AppDecoration.fillTeal.copyWith(
-  //       borderRadius: BorderRadiusStyle.roundedBorder13,
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //       children: [
-  //         Padding(
-  //           padding: EdgeInsets.only(
-  //             left: 7.h,
-  //             top: 20.v,
-  //             bottom: 17.v,
-  //           ),
-  //           child: Text(
-  //             "Dr."+Name,
-  //             style: theme.textTheme.titleSmall,
-  //           ),
-  //         ),
-  //         Column(
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             Container(
-  //               height: 43.adaptSize,
-  //               width: 43.adaptSize,
-  //               margin: EdgeInsets.only(left: 1.h),
-  //               decoration: BoxDecoration(
-  //                 color: appTheme.greenA40001,
-  //                 borderRadius: BorderRadius.circular(
-  //                   21.h,
-  //                 ),
-  //               ),
-  //             ),
-  //             Align(
-  //               alignment: Alignment.center,
-  //               child: Text(
-  //                 "Available",
-  //                 style: theme.textTheme.bodySmall,
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // /// Section Widget
-  // Widget _buildNotAvailable(BuildContext context, String Name) {
-  //   return Container(
-  //     margin: EdgeInsets.symmetric(horizontal: 35.h),
-  //     padding: EdgeInsets.symmetric(
-  //       horizontal: 12.h,
-  //       vertical: 9.v,
-  //     ),
-  //     decoration: AppDecoration.fillTeal.copyWith(
-  //       borderRadius: BorderRadiusStyle.roundedBorder13,
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //       children: [
-  //         Padding(
-  //           padding: EdgeInsets.only(
-  //             left: 18.h,
-  //             top: 18.v,
-  //             bottom: 19.v,
-  //           ),
-  //           child: Text(
-  //             "Dr."+Name,
-  //             style: theme.textTheme.titleSmall,
-  //           ),
-  //         ),
-  //         Column(
-  //           children: [
-  //             Container(
-  //               height: 43.adaptSize,
-  //               width: 43.adaptSize,
-  //               decoration: BoxDecoration(
-  //                 color: appTheme.deepOrangeA700,
-  //                 borderRadius: BorderRadius.circular(
-  //                   21.h,
-  //                 ),
-  //               ),
-  //             ),
-  //             Text(
-  //               "Not Available",
-  //               style: theme.textTheme.bodySmall,
-  //             ),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 }

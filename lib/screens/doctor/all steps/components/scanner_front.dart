@@ -150,7 +150,7 @@ Future<void> _uploadImage() async {
                           Align(
                             alignment: Alignment.center,
                             child: Text(
-                              "Preview",
+                              "Select Image",
                               style:
                                   TextStyle(color: Colors.black, fontSize: 14),
                             ),
@@ -210,36 +210,17 @@ Future<void> _uploadImage() async {
                   children: [
                     Expanded(
                       child: CustomElevatedButton(
-                        onPressed: () {
-                          _showImageSourceBottomSheet(context);
-                        },
-                        text: "Capture",
-                        margin: EdgeInsets.only(right: 22.h),
-                        leftIcon: Container(
-                          margin: EdgeInsets.only(right: 3.h),
-                          child: CustomImageView(
-                            imagePath: ImageConstant.imgTelevision,
-                            height: 19.adaptSize,
-                            width: 19.adaptSize,
-                          ),
-                        ),
-                        buttonTextStyle: theme.textTheme.labelLarge!,
-                      ),
-                    ),
-                    Expanded(
-                      child: CustomElevatedButton(
                         onPressed: _uploadImage,
                         text: "Upload",
-                        margin: EdgeInsets.only(left: 22.h),
+                        margin: EdgeInsets.only(left: 30.h, right: 30.h),
+                        showIcon: true,
                         leftIcon: Container(
                           margin: EdgeInsets.only(right: 6.h),
-                          child: CustomImageView(
-                            imagePath: ImageConstant.imgImage,
-                            height: 17.v,
-                            width: 19.h,
-                          ),
+                          child: Icon(Icons.upload, color:Colors.white,size: 20,)
                         ),
-                        buttonTextStyle: theme.textTheme.labelLarge!,
+                        buttonTextStyle: theme.textTheme.labelLarge!.copyWith(
+                          fontSize: 12
+                        ),
                       ),
                     )
                   ],

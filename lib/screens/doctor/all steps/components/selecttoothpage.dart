@@ -1,8 +1,11 @@
+// ignore_for_file: deprecated_member_use, unused_field
+
 import 'dart:io';
 
 import 'package:Dentepic/core/app_export.dart';
 import 'package:Dentepic/screens/doctor/all%20steps/step_3/treatmentplan.dart';
 import 'package:Dentepic/widgets/dialogs.dart';
+import 'package:avatar_glow/avatar_glow.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -31,15 +34,19 @@ class SelectToothPageState extends State<SelectToothPage>
     with AutomaticKeepAliveClientMixin<SelectToothPage> {
   // @override
   List<Map<String, dynamic>> selectedTeethData = [];
+  List<Map<String, dynamic>> selectedTeethDatalocal = [];
   bool get wantKeepAlive => true;
   SpeechToText speechToText = SpeechToText();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  List<Disease> diseases = [];
   String? selectedDisease;
   Map<int, String?> selectedToothDisease = {};
   Map<int, XFile?> _selectedImages = {};
+  Map<int, String> toothDescriptions = {};
+    Map<int, TextEditingController> toothControllers = {};
   Map<String, List<int>> diseaseToothIds = {};
   Map<String, int> diseaseTextFieldsCount = {};
+  bool _isListning = false;
+
   final List<Tooth> teeth = [
     // Upper Teeth (Right to Left)
     Tooth(id: 1, left: 0.175, top: 0.425),
@@ -86,9 +93,8 @@ class SelectToothPageState extends State<SelectToothPage>
 
   final ImagePicker _picker = ImagePicker();
 
-  Future<void> _pickImage(int toothId) async {
-    final XFile? pickedFile =
-        await _picker.pickImage(source: ImageSource.gallery);
+  Future<void> _pickImage(int toothId, ImageSource path) async {
+    final XFile? pickedFile = await _picker.pickImage(source: path);
     if (pickedFile != null) {
       setState(() {
         _selectedImages[toothId] = pickedFile;
@@ -99,39 +105,34 @@ class SelectToothPageState extends State<SelectToothPage>
   @override
   void initState() {
     super.initState();
-    _fetchDiseases();
+    // _fetchDiseases();
     teeth.forEach((tooth) {
       selectedToothDisease[tooth.id] =
-          null; // Initialize selected disease to null for each tooth
+          null; 
+      toothControllers[tooth.id] = TextEditingController();// Initialize selected disease to null for each tooth
     });
+  }
+    @override
+  void dispose() {
+    toothControllers.forEach((_, controller) {
+      controller.dispose();
+    });
+    super.dispose();
   }
 
   void handleToothSelection(
-      String toothId, String disease, String description, String imagePath) {
+      String toothId, String description, String imagePath, String devicePath) {
     // Add selected tooth data to list
     selectedTeethData.add({
       'toothId': toothId,
-      'disease': disease,
       'description': description,
       'imagePath': imagePath,
     });
-  }
-
-  Future<void> _fetchDiseases() async {
-    try {
-      QuerySnapshot snapshot = await _firestore.collection('diseases').get();
-      setState(() {
-        diseases = snapshot.docs.map((doc) {
-          return Disease(
-            name: doc['diseaseName'],
-            description: doc['description'],
-          );
-        }).toList();
-      });
-    } catch (e) {
-      print('Error fetching diseases: $e');
-      Fluttertoast.showToast(msg: "Error fetching diseases");
-    }
+    selectedTeethDatalocal.add({
+      'toothId': toothId,
+      'description': description,
+      'imagePath': devicePath,
+    });
   }
 
   Future<String> _uploadImageToStorage(File imageFile) async {
@@ -158,45 +159,38 @@ class SelectToothPageState extends State<SelectToothPage>
     try {
       for (int toothId in selectedToothDisease.keys) {
         if (selectedToothDisease[toothId] != null) {
-          String diseaseName = selectedToothDisease[toothId]!;
-          String diseaseDescription = diseases
-              .firstWhere((disease) => disease.name == diseaseName)
-              .description;
+          // String diseaseName = selectedToothDisease[toothId]!;
+          String description = toothControllers[toothId]?.text ?? '';
           String imagePath = '';
           if (_selectedImages[toothId] != null) {
             imagePath = await _uploadImageToStorage(
                 File(_selectedImages[toothId]!.path));
           }
 
-          handleToothSelection(
-              toothId.toString(), diseaseName, diseaseDescription, imagePath);
+          handleToothSelection(toothId.toString(), description, imagePath, _selectedImages[toothId]!.path);
         }
       }
-        if (selectedTeethData.isNotEmpty) {
-      DocumentReference studentDocRef = _firestore
-          .collection('students')
-          .doc(widget.studentInfo['id']);
+      if (selectedTeethData.isNotEmpty) {
+        DocumentReference studentDocRef =
+            _firestore.collection('students').doc(widget.studentInfo['id']);
+        // CollectionReference teethDataCollectionRef = studentDocRef.collection('teethData');
 
-      // CollectionReference teethDataCollectionRef = studentDocRef.collection('teethData');
+        // QuerySnapshot teethDataSnapshot = await teethDataCollectionRef.limit(1).get();
 
-      // QuerySnapshot teethDataSnapshot = await teethDataCollectionRef.limit(1).get();
+        DocumentSnapshot docSnapshot = await studentDocRef.get();
 
-      DocumentSnapshot docSnapshot = await studentDocRef.get();
-
- 
-      if (docSnapshot.exists){
-        // If the collection exists, update the document within it
-        // DocumentReference documentRef = teethDataSnapshot.docs.first.reference;
-        await studentDocRef.update({
-          'teeth': selectedTeethData,
-        });
-      } else {
-        // If the collection does not exist, create the document within it
-        await studentDocRef.set({
-          'teeth': selectedTeethData,
-        });
-        
-      }
+        if (docSnapshot.exists) {
+          // If the collection exists, update the document within it
+          // DocumentReference documentRef = teethDataSnapshot.docs.first.reference;
+          await studentDocRef.update({
+            'teeth': selectedTeethData,
+          });
+        } else {
+          // If the collection does not exist, create the document within it
+          await studentDocRef.set({
+            'teeth': selectedTeethData,
+          });
+        }
         Navigator.pop(context);
         Fluttertoast.showToast(msg: "Data saved successfully");
         Navigator.push(
@@ -227,7 +221,7 @@ class SelectToothPageState extends State<SelectToothPage>
                 frontImagePath: widget.frontImagePath,
                 upperImagePath: widget.upperImagePath,
                 lowerImagePath: widget.lowerImagePath,
-                selectedTeethData: selectedTeethData,
+                selectedTeethData: selectedTeethDatalocal,
               );
             },
           ),
@@ -237,12 +231,86 @@ class SelectToothPageState extends State<SelectToothPage>
         Dialogs.showSnackbar(context, "Please Select Tooth");
       }
     } catch (e) {
-        Navigator.pop(context);
+      Navigator.pop(context);
       print('Error saving data: $e');
       Fluttertoast.showToast(msg: "Error saving data");
     } finally {
       setState(() {
         _isUploading = false;
+      });
+    }
+  }
+
+  void _onToothTap(int toothId) {
+    setState(() {
+      if (selectedToothDisease[toothId] == null) {
+        selectedToothDisease[toothId] = ''; // Select the tooth with no disease
+      } else {
+        selectedToothDisease.remove(toothId); // Deselect the tooth
+      }
+    });
+  }
+
+  void _showImageSourceBottomSheet(BuildContext context, int toothId) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.camera_alt),
+                title: Text('Take a picture'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(toothId, ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_library),
+                title: Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(toothId, ImageSource.gallery);
+                },
+              ),
+              SizedBox(
+                height: 15,
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _startListening(int toothId) async {
+    if (!_isListning) {
+      bool available = await speechToText.initialize(
+        onError: (error) => print('Error: $error'),
+      );
+      if (available) {
+        setState(() {
+          _isListning = true;
+        });
+        speechToText.listen(
+          onResult: (result) {
+            setState(() {
+                 toothControllers[toothId]?.text = result.recognizedWords;
+            });
+          },
+          cancelOnError: true,
+        );
+      }
+    }
+  }
+
+  void _stopListening() {
+    if (_isListning) {
+      speechToText.stop();
+      setState(() {
+        _isListning = false;
       });
     }
   }
@@ -296,9 +364,6 @@ class SelectToothPageState extends State<SelectToothPage>
                       width: width,
                     ),
                     ...teeth.map((tooth) {
-                      Color toothColor =
-                          _getColorForDisease(tooth.selectedDisease ?? '');
-
                       return Positioned(
                         left: tooth.left != null ? tooth.left! * width : null,
                         right:
@@ -312,13 +377,25 @@ class SelectToothPageState extends State<SelectToothPage>
                             _onToothTap(tooth.id);
                           },
                           child: Container(
-                            width: 16,
-                            height: 16,
+                            width: 18,
+                            height: 18,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: toothColor,
+                              color: selectedToothDisease[tooth.id] != null
+                                  ? Colors.red
+                                  : Colors.transparent,
                               border: Border.all(
-                                color: Colors.grey, // Optional: Add border
+                                color: Colors.black,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                tooth.id.toString(),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
                               ),
                             ),
                           ),
@@ -335,93 +412,7 @@ class SelectToothPageState extends State<SelectToothPage>
             ...selectedToothDisease.keys
                 .where((toothId) => selectedToothDisease[toothId] != null)
                 .map((toothId) {
-              String? selectedDiseaseName = selectedToothDisease[toothId];
-              Disease? selectedDisease = diseases.firstWhere(
-                  (disease) => disease.name == selectedDiseaseName,
-                  orElse: () => Disease(name: '', description: ''));
-
-              return Column(
-                children: [
-                  Container(
-                    // height:
-                    //     250, // You used `250.v`, which may require additional setup for vertical units
-                    margin: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    child: TextFormField(
-                      initialValue: selectedDisease.description,
-                      style: TextStyle(color: Colors.black),
-                      enabled: false, // Disable editing
-                      decoration: InputDecoration(
-                        labelText: selectedDisease.name,
-                        filled: true,
-                        fillColor: Colors.grey[300],
-                        border: OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.blue),
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        // hintStyle: TextStyle(color: Colors.black),
-                      ),
-                      maxLines: 5,
-                      // expands: true,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      _pickImage(toothId); // Pass toothId to _pickImage method
-                    },
-                    child: SizedBox(
-                      height: 170.adaptSize,
-                      width: 170.adaptSize,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          if (_selectedImages[toothId] == null)
-                            Align(
-                              alignment: Alignment.center,
-                              child: Text(
-                                "Select Image",
-                                style: TextStyle(
-                                    color: Colors.black, fontSize: 14),
-                              ),
-                            ),
-                          if (_selectedImages[toothId] != null)
-                            Image.file(
-                              File(_selectedImages[toothId]!.path),
-                              height: 170,
-                              width: 170,
-                              fit: BoxFit.cover,
-                            ),
-                          _isUploading
-                              ? CircularProgressIndicator()
-                              : Align(
-                                  alignment: Alignment.center,
-                                  child: DottedBorder(
-                                    color: appTheme.black900,
-                                    padding: EdgeInsets.only(
-                                      left: 2.h,
-                                      top: 2.v,
-                                      right: 2.h,
-                                      bottom: 2.v,
-                                    ),
-                                    strokeWidth: 2.h,
-                                    dashPattern: [4, 4],
-                                    child: Container(
-                                      height: 170.adaptSize,
-                                      width: 170.adaptSize,
-                                      decoration: BoxDecoration(),
-                                    ),
-                                  ),
-                                )
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              );
+              return _buildToothInfoSection(toothId);
             }).toList(),
           ],
         ),
@@ -435,115 +426,136 @@ class SelectToothPageState extends State<SelectToothPage>
     ]));
   }
 
-  void _onToothTap(int toothId) {
-    final selectedTooth = teeth.firstWhere((tooth) => tooth.id == toothId);
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Select Disease',
-            style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? appTheme.black900
-                  : appTheme.whiteA700,
-            ),
+  Widget _buildToothInfoSection(int toothId) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tooth $toothId',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          content: DropdownButtonFormField<String>(
-            value: selectedToothDisease[selectedTooth.id],
-            style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? appTheme.black900
-                  : appTheme.whiteA700,
-            ),
-            hint: Text(
-              'Select Disease',
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? appTheme.black900
-                    : appTheme.whiteA700,
-              ),
-            ),
-            onChanged: (newValue) {
-              setState(() {
-                selectedTooth.selectedDisease = newValue;
-                selectedToothDisease[selectedTooth.id] = newValue;
-
-                // Update diseaseToothIds map to associate toothId with disease
-                if (newValue != null) {
-                  if (diseaseToothIds.containsKey(newValue)) {
-                    if (!diseaseToothIds[newValue]!
-                        .contains(selectedTooth.id)) {
-                      diseaseToothIds[newValue]!.add(selectedTooth.id);
-                    }
-                  } else {
-                    diseaseToothIds[newValue] = [selectedTooth.id];
-                  }
-                }
-
-                Navigator.of(context).pop();
-              });
-            },
-            items: diseases.map((disease) {
-              return DropdownMenuItem<String>(
-                value: disease.name,
-                child: Text(
-                  disease.name,
-                  style: TextStyle(
-                    color: _getColorForDisease(disease.name),
+          SizedBox(height: 10),
+          _selectedImages[toothId] != null
+              ? Stack(
+                  children: [
+                    Image.file(
+                      File(_selectedImages[toothId]!.path),
+                      height: 100,
+                      width: 100,
+                      fit: BoxFit.cover,
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedImages.remove(toothId);
+                          });
+                        },
+                        child: Container(
+                          color: Colors.red,
+                          child: Icon(
+                            Icons.close,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : DottedBorder(
+                  borderType: BorderType.RRect,
+                  radius: Radius.circular(12),
+                  dashPattern: [8, 4],
+                  strokeWidth: 2,
+                  child: GestureDetector(
+                    onTap: () => _showImageSourceBottomSheet(context, toothId),
+                    child: Container(
+                      height: 100,
+                      width: 100,
+                      child: Center(
+                        child: Text('Upload Image'),
+                      ),
+                    ),
                   ),
                 ),
-              );
-            }).toList(),
+          SizedBox(height: 15),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                   controller: toothControllers[toothId],
+                  style: TextStyle(color: Colors.black),
+                  decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.grey[300],
+                      border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.blue),
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      labelText: 'Tooth Description',
+                      labelStyle: TextStyle(color: Colors.black),
+                      hintStyle: TextStyle(color: Colors.black),
+                      suffixIcon: Padding(
+                        padding: EdgeInsets.only(right: 10),
+                        child: AvatarGlow(
+                          animate: _isListning,
+                          duration: Duration(milliseconds: 1500),
+                          glowColor: appTheme.black900,
+                          repeat: true,
+                          glowRadiusFactor: 0.2,
+                          child: GestureDetector(
+                            onTapDown: (details) async {
+                              await _startListening(toothId);
+                            },
+                            onTapUp: (details) {
+                              _stopListening();
+                            },
+                            child: CircleAvatar(
+                              backgroundColor: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? appTheme.teal600
+                                  : appTheme.blue50,
+                              radius: 12,
+                              child: Icon(
+                                _isListning ? Icons.mic : Icons.mic_none,
+                                color: Colors.black,
+                                size: 25,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )),
+                  onChanged: (value) {
+                    setState(() {
+                      toothDescriptions[toothId] = value;
+                    });
+                  },
+                  maxLines: 4,
+                  // initialValue: toothDescriptions[toothId],
+                ),
+              ),
+            ],
           ),
-        );
-      },
+          SizedBox(
+            height: 10,
+          ),
+          Divider(
+            color: Colors.black,
+            thickness: 0.7,
+          )
+        ],
+      ),
     );
   }
-
-  Color _getColorForDisease(String diseaseName) {
-    switch (diseaseName) {
-      case 'Dental caries':
-        return Colors.brown; // Light brown
-      case 'Deep Dental caries':
-        return Colors.brown.shade800; // Dark brown
-      case 'Periapical abscess':
-        return Colors.red; // Red
-      case 'Gingivitis':
-        return Colors.pink; // Pink
-      case 'Root pieces':
-        return Colors.grey; // Grey
-      case 'Fractured tooth':
-        return Colors.grey.shade700; // Dark grey
-      case 'Mobile tooth':
-        return Colors.amber; // Yellow
-      case 'Fluorosis':
-        return Colors.blue; // Blue
-      case 'High frenal attachment':
-        return Colors.pink.shade100; // Light pink
-      case 'Enamel hypoplasia':
-        return Colors.yellow; // Yellow
-      case 'Pericoronitis':
-        return Colors.redAccent; // Red accent
-      case 'Space infection':
-        return Colors.deepOrange; // Deep orange
-      case 'Over retained teeth':
-        return Colors.grey.shade500; // Medium grey
-      case 'Missing teeth':
-        return Colors.grey.shade300; // Light grey
-      case 'Orthodontic malocclusion':
-        return Colors.purple; // Purple
-      default:
-        return Colors.black; // Default to black if not found
-    }
-  }
-}
-
-class Disease {
-  final String name;
-  final String description;
-
-  Disease({required this.name, required this.description});
 }
 
 class Tooth {

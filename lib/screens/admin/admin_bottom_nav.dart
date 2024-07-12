@@ -9,6 +9,8 @@ import 'package:Dentepic/screens/admin/upload/upload_diesease_data.dart';
 import 'package:Dentepic/screens/admin/upload/upload_student_data.dart';
 import 'package:Dentepic/screens/auth/login/login_tab.dart';
 import 'package:Dentepic/services/permission_handler.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,6 +34,8 @@ class AdminBottom extends StatefulWidget {
 
 class _InitScreenState extends State<AdminBottom> {
   int currentSelectedIndex = 0;
+  late User user;
+  String profileImageUrl = '';
 
   late List<Widget Function(String)> pages; // Declare pages as a late variable
 
@@ -44,8 +48,21 @@ class _InitScreenState extends State<AdminBottom> {
       (userId) => DoctorDataScreen(),
       (userId) => NotificationsScreen(),
     ];
-     PermissionHandler().requestPermissions();
+    PermissionHandler().requestPermissions();
+    user = FirebaseAuth.instance.currentUser!;
+    fetchUserData();
+  }
 
+  Future<void> fetchUserData() async {
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection(pref.getString('userRole').toString())
+        .doc(user.uid)
+        .get();
+
+    setState(() {
+      profileImageUrl = userDoc['profileImageUrl']??ImageConstant.drProfile;
+    });
   }
 
   updateCurrentIndex(int index) {
@@ -73,8 +90,8 @@ class _InitScreenState extends State<AdminBottom> {
                   icon: Icon(
                     Icons.menu,
                     color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black
-                          : Colors.white,
+                        ? Colors.black
+                        : Colors.white,
                     size: 30,
                   ),
                   onPressed: () {
@@ -90,7 +107,7 @@ class _InitScreenState extends State<AdminBottom> {
           Padding(
             padding: EdgeInsets.only(right: 20.h),
             child: CustomImageView(
-              imagePath: ImageConstant.imgEllipse3,
+              imagePath:profileImageUrl ,
               height: 45.adaptSize,
               width: 45.adaptSize,
               radius: BorderRadius.circular(

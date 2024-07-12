@@ -11,6 +11,8 @@ class ImageConstant {
 
   // Doctor Data images
   static String imgGroup83Teal400 = '$imagePath/img_group_83_teal_400.svg';
+  static String drProfile = '$imagePath/dr_profile.png';
+
 
   // Notifications images
   static String imgLock = '$imagePath/img_lock.svg';

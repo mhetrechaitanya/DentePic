@@ -1,13 +1,16 @@
+import 'dart:io';
+
+import 'package:Dentepic/color_extension.dart';
 import 'package:Dentepic/core/app_export.dart';
+import 'package:Dentepic/icon_item_row.dart';
 import 'package:Dentepic/theme/theme_notifer,dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'color_extension.dart';
-import 'icon_item_row.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView();
@@ -24,6 +27,7 @@ class _ProfileViewState extends State<ProfileView> {
   String userName = 'Name';
   String userEmail = 'Email';
   String profileImageUrl = '';
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -43,7 +47,7 @@ class _ProfileViewState extends State<ProfileView> {
     setState(() {
       userName = userDoc['fullName'] ?? 'Name';
       userEmail = user.email ?? 'Email';
-      // profileImageUrl = userDoc['profileImageUrl'] ?? ImageConstant.imgEllipse3;
+      profileImageUrl = userDoc['profileImageUrl'];
       nameController.text = userName;
     });
   }
@@ -52,7 +56,7 @@ class _ProfileViewState extends State<ProfileView> {
     SharedPreferences pref = await SharedPreferences.getInstance();
     await FirebaseFirestore.instance
         .collection(pref.getString('userRole').toString())
-        .doc(user.uid)
+        .doc(pref.getString('id'))
         .update({
       'fullName': nameController.text,
     });
@@ -63,13 +67,93 @@ class _ProfileViewState extends State<ProfileView> {
     });
   }
 
+  Future<void> updateProfilePic() async {
+    SharedPreferences pref = await SharedPreferences.getInstance();
+    await FirebaseFirestore.instance
+        .collection(pref.getString('userRole').toString())
+        .doc(pref.getString('id'))
+        .set({
+      'profileImageUrl': profileImageUrl, // Update profile image URL
+    }, SetOptions(merge: true));
+
+    setState(() {
+      userName = nameController.text;
+      isEditing = false;
+    });
+  }
+
+  Future<void> _uploadImage(File imageFile) async {
+    setState(() {
+      isLoading = true; // Show loading indicator
+    });
+
+    FirebaseStorage storage = FirebaseStorage.instance;
+    Reference ref =
+        storage.ref().child('profile_images').child('${user.uid}.jpg');
+
+    UploadTask uploadTask = ref.putFile(imageFile);
+    TaskSnapshot taskSnapshot = await uploadTask.whenComplete(() => null);
+    String imageUrl = await taskSnapshot.ref.getDownloadURL();
+    updateProfilePic();
+
+    setState(() {
+      profileImageUrl = imageUrl;
+      isLoading = false;
+    });
+  }
+
+  void _showImageSourceBottomSheet(
+    BuildContext context,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.camera_alt),
+                title: Text('Take a picture'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_library),
+                title: Text('Choose from gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              SizedBox(
+                height: 15,
+              )
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(ImageSource path) async {
+    final ImagePicker _picker = ImagePicker();
+    final XFile? image = await _picker.pickImage(source: path);
+
+    if (image != null) {
+      File imageFile = File(image.path);
+      await _uploadImage(imageFile);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     var themeNotifier = Provider.of<ThemeNotifier>(context);
     bool isDarkMode = themeNotifier.themeMode == ThemeMode.dark;
     return Scaffold(
-      // backgroundColor: appTheme.blue50,
-      appBar: AppBar(
+        appBar: AppBar(
         backgroundColor: Theme.of(context).brightness == Brightness.light
             ? appTheme.blue50
             : Colors.black,
@@ -97,14 +181,40 @@ class _ProfileViewState extends State<ProfileView> {
             const SizedBox(
               height: 20,
             ),
-            CircleAvatar(
-              radius: 50, // Adjust the radius as needed
-              backgroundColor: appTheme.teal600, // Border color
-              child: CircleAvatar(
-                radius: 48, // Adjust the radius as needed
-                backgroundImage:
-                    // NetworkImage(profileImageUrl),
-                    AssetImage(ImageConstant.imgEllipse3), // Image asset
+            GestureDetector(
+              onTap: () {
+                _showImageSourceBottomSheet(
+                    context); // Call method to pick image from gallery
+              },
+              child: Stack(
+                children: [
+                  if (profileImageUrl.isNotEmpty)
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: appTheme.teal600,
+                      child: CircleAvatar(
+                        radius: 48,
+                        backgroundImage: NetworkImage(profileImageUrl),
+                      ),
+                    ),
+                  if (profileImageUrl.isEmpty)
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: appTheme.teal600,
+                      child: CircleAvatar(
+                        radius: 48,
+                        backgroundImage: AssetImage(ImageConstant.drProfile),
+                      ),
+                    ),
+                  if (isLoading)
+                    Positioned.fill(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(
@@ -231,11 +341,6 @@ class _ProfileViewState extends State<ProfileView> {
                         IconItemSwitchRow(
                           title: "Dark Mode",
                           icon: Icon(Icons.dark_mode, color: Colors.black),
-                          // value: isActive,
-                          // didChange: (newVal) {
-                          //   setState(() {
-                          //     isActive = newVal;
-                          //   });
                           value: isDarkMode,
                           didChange: (newVal) {
                             themeNotifier.toggleTheme(newVal);
